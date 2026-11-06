@@ -1,44 +1,33 @@
 # etape7_evaluation.py
 import csv
-import os
 from etape5_recherche import rechercher
 
 def taux_reussite(fichier="evaluation.csv", k=3):
-    """
-    Calcule le taux de réussite (Recall@k) du système de recherche.
-    Vérifie si le document attendu figure parmi les k premiers résultats trouvés.
-    """
-    if not os.path.exists(fichier):
-        print(f"Erreur : Le fichier d'évaluation '{fichier}' est introuvable.")
-        return 0.0
-
-    with open(fichier, mode="r", encoding="utf-8") as f:
+    with open(fichier, encoding="utf-8") as f:
         lignes = list(csv.DictReader(f))
+    
+    trouves = 0
+    for ligne in lignes:
+        # Récupère les sources des k premiers chunks trouvés
+        sources = [r["source"] for r in rechercher(ligne["question"], k)]
         
-        if not lignes:
-            print("Erreur : Le fichier d'évaluation est vide.")
-            return 0.0
-
-        trouves = 0
-        for ligne in lignes:
-            # Récupération des k extraits les plus pertinents via ChromaDB
-            extraits = rechercher(ligne["question"], k=k)
-            sources = [e["source"] for e in extraits]
+        doc_attendu = ligne["document_attendu"]
+        
+        # Gestion du cas où aucune réponse/document n'est attendu ("aucun")
+        if doc_attendu == "aucun" and len(sources) == 0:
+            trouves += 1
+        # Gestion du cas classique : le document attendu est dans les sources remontées
+        elif doc_attendu in sources:
+            trouves += 1
             
-            # Vérification : le document attendu est-il dans les sources retournées ?
-            if ligne["document_attendu"] in sources:
-                trouves += 1
-                
-        return trouves / len(lignes)
-
+    return trouves / len(lignes)
 
 if __name__ == "__main__":
-    print("=" * 55)
-    print("ÉVALUATION DU RETRIEVER ALTÉA SERVICES (Recall@k)")
-    print("=" * 55)
+    print("=" * 60)
+    print("LANCEMENT DE L'ÉVALUATION DU RAPPEL (RETRIEVAL)")
+    print("=" * 60)
     
+    # Test avec différentes valeurs de k (1, 3 et 5)
     for k in (1, 3, 5):
-        score = taux_reussite(k=k) * 100
-        print(f"k = {k} : {score:.0f}% des questions trouvent le bon document")
-        
-    print("=" * 55)
+        taux = taux_reussite(fichier="evaluation.csv", k=k)
+        print(f"k = {k} : {taux:.0%} de questions où le bon document est trouvé")
